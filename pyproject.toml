@@ -1,0 +1,78 @@
+# =============================================================================
+# pyproject.toml — The "master config" file of this Python project.
+#
+# What is this file for?
+#   It declares EVERYTHING about the project as a package:
+#   - how to build it,
+#   - its metadata (name, version),
+#   - which external libraries it depends on.
+#
+# Why do we need it?
+#   Later, inside the Docker container, we will run:
+#       pip install -e ".[dev]"
+#   pip reads THIS file to know what to install.
+#   Without it, the folder is just loose Python files, not an installable project.
+#
+# Format: TOML (Tom's Obvious, Minimal Language) — the modern standard
+#         (PEP 621) for Python project configuration.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# [build-system]: HOW the project is built/installed.
+# -----------------------------------------------------------------------------
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# -----------------------------------------------------------------------------
+# [project]: Core metadata + RUNTIME dependencies.
+# -----------------------------------------------------------------------------
+# These dependencies are required for the app to RUN in production.
+# The app won't start without them.
+
+[project]
+name = "stylestore-lite"
+version = "0.1.0"
+description = "StyleStore Lite - A clothing e-commerce backend built with FastAPI."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "pydantic-settings",
+]
+
+# -----------------------------------------------------------------------------
+# [project.optional-dependencies]: EXTRA dependency groups (not installed by default).
+# -----------------------------------------------------------------------------
+# Dev dependencies are only needed during development, never in production.
+# Installed only when explicitly requested:
+#       pip install -e ".[dev]"
+#   - pytest : test runner (runs the code in tests/)
+#   - httpx  : async HTTP client; FastAPI's TestClient uses it to test endpoints
+#              without starting a real server
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "httpx",
+]
+
+# -----------------------------------------------------------------------------
+# [tool.setuptools.packages.find]: WHICH folders should be packaged.
+# -----------------------------------------------------------------------------
+# `include = ["app*"]` = only package the `app` directory (and its subpackages).
+# Prevents setuptools from accidentally packaging `tests/`, `docker/`, etc.
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+# -----------------------------------------------------------------------------
+# [tool.pytest.ini_options]: pytest configuration.
+# -----------------------------------------------------------------------------
+# `testpaths` = where pytest looks for tests by default,
+# so you can just run `pytest` instead of `pytest tests/`.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,25 @@
+# Files excluded from the Docker build context (COPY cannot see them).
+
+# Secrets must NEVER end up inside an image.
+
+.env
+
+# Git metadata
+
+.git
+.gitignore
+
+# Python caches
+
+**pycache**
+\*.pyc
+.pytest_cache
+
+# Docker / editor noise
+
+.dockerignore
+compose.yaml
+Dockerfile
+.vscode
+.idea
+README.md.tmp

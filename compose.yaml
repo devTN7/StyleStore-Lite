@@ -1,0 +1,77 @@
+# =============================================================================
+# compose.yaml — Defines and runs the multi-container app (api + db).
+#
+# One command (`docker compose up`) starts everything: network, volumes,
+# both services, wiring them together.
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # api: our FastAPI backend, built from the Dockerfile.
+  # ---------------------------------------------------------------------------
+  api:
+    build: . # build the image using ./Dockerfile and ./ build context
+    container_name: stylestore-api
+    # Command override: --reload enables hot reload during development.
+    # (main.py is still a placeholder; uvicorn will fail until Step 3 — expected.)
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      # host:container — access the API at http://localhost:8000
+      - "8000:8000"
+    volumes:
+      # Bind mount: live source code from the host, so edits show up
+      # instantly in the container (combined with --reload).
+      - ./app:/app/app
+      - ./tests:/app/tests
+    env_file:
+      - .env # load variables from .env into the container
+    environment:
+      # Inside the Docker network the DB is reachable by service name `db`
+      # (NOT localhost — each container has its own network namespace).
+      # Port 5432 is PostgreSQL's port INSIDE the network.
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy # start api only after db passes its healthcheck
+    networks:
+      - stylestore-net
+
+  # ---------------------------------------------------------------------------
+  # db: PostgreSQL 17 database.
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:17 # official image — no need to install PostgreSQL on Ubuntu
+    container_name: stylestore-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      # Exposed ONLY on localhost (127.0.0.1) so GUI tools like DBeaver can
+      # connect from the host, while other machines on the network cannot.
+      - "127.0.0.1:5433:5432"
+    volumes:
+      # Named volume: PostgreSQL data survives `docker compose down`
+      # (data is deleted only with `docker compose down -v`).
+      - stylestore-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # pg_isready = lightweight "are you accepting connections?" check.
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - stylestore-net
+
+# ---------------------------------------------------------------------------
+# Named volume for PostgreSQL data persistence.
+# ---------------------------------------------------------------------------
+volumes:
+  stylestore-pgdata:
+
+# ---------------------------------------------------------------------------
+# Custom network: containers on it reach each other by service name.
+# ---------------------------------------------------------------------------
+networks:
+  stylestore-net:
+    driver: bridge
