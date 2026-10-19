@@ -11,9 +11,9 @@
 
 # Python caches
 
-**pycache**
-\*.pyc
-.pytest_cache
+**pycache**/
+\*.py[cod]
+.pytest_cache/
 
 # Docker / editor noise
 

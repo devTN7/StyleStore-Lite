@@ -23,22 +23,27 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # All following commands run inside /app in the container.
 WORKDIR /app
 
-# --- 4. Install dependencies (cache-friendly) --------------------------------
-# We copy ONLY pyproject.toml first, then install. As long as dependencies
-# don't change, this layer is cached — even when we edit source code daily.
-# -e (editable): the project is installed as a link, not a copy, so the
-#                bind-mounted source code is used at runtime + hot reload works.
-# ".[dev]"     : install runtime deps + the `dev` extras (pytest, httpx).
+# --- 4. Copy source code BEFORE install --------------------------------------
+# NOTE on ordering: the project uses an EDITABLE install (`pip install -e`).
+# Editable install does NOT copy our code into site-packages; it writes a
+# "finder" that maps the `app` package to its on-disk location. If `app/`
+# does not exist yet when pip runs, the mapping is EMPTY and `import app`
+# only works by accident (cwd on sys.path) — fragile.
+# So for editable installs the source must exist BEFORE `pip install -e`.
+# Trade-off: editing source code invalidates this install layer, so builds
+# take slightly longer than the "copy config first" pattern (which suits
+# non-editable installs). Correctness > micro-optimizing dev builds here.
 COPY pyproject.toml README.md ./
-RUN pip install --no-cache-dir -e ".[dev]"
-
-# --- 5. Copy source code ------------------------------------------------------
-# This layer changes almost every commit — that's why it comes last.
-# Note: .dockerignore keeps .env, .git, caches... out of the build context.
 COPY app ./app
 COPY tests ./tests
 
-# --- 6. Default command -------------------------------------------------------
+# --- 5. Install project + dependencies ---------------------------------------
+# -e (editable): import resolves to the live files on disk, so the bind mount
+#                and uvicorn --reload work in development.
+# ".[dev]"     : runtime deps + the `dev` extras (pytest, httpx).
+RUN pip install --no-cache-dir -e ".[dev]"
+
+# --- 6. Default command ------------------------------------------------------
 # What runs when the container starts without an explicit command.
 # (compose.yaml overrides this with --reload for development.)
 # 0.0.0.0 = listen on all interfaces, required to be reachable from outside
